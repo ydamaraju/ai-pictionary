@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Sketch Learner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f0f0f0; }
+        canvas { border: 2px solid #333; background: white; cursor: crosshair; margin-top: 20px; }
+        .controls { margin: 20px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button { padding: 10px 15px; cursor: pointer; border-radius: 5px; border: none; background: #007bff; color: white; }
+        button:hover { background: #0056b3; }
+        #status { font-weight: bold; color: #555; }
+        .prediction-area { font-size: 1.5rem; margin: 10px; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+    <h2>AI Sketch Recognizer</h2>
+    <p id="status">Loading Model...</p>
+    
+    <div class="prediction-area">
+        I think this is: <span id="resultText">...</span>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <div class="controls">
+        <input type="text" id="labelInput" placeholder="Enter label (e.g. 'Circle')">
+        <button onclick="addExample()">Add as Example</button>
+        <button onclick="train()">Train Model</button>
+        <button onclick="clearCanvas()" style="background:#6c757d">Clear Drawing</button>
+    </div>
+
+    <script>
+        let featureExtractor;
+        let classifier;
+        let canvas;
+        let isModelReady = false;
+        let isTraining = false;
+
+        function setup() {
+            // Create a 400x400 canvas
+            canvas = createCanvas(400, 400);
+            canvas.parent('canvas-container');
+            background(255);
+
+            // Initialize the MobileNet feature extractor
+            featureExtractor = ml5.featureExtractor('MobileNet', modelLoaded);
+            
+            // Create a classifier using those features
+            classifier = featureExtractor.classification(canvas);
+        }
+
+        function modelLoaded() {
+            document.getElementById('status').innerText = 'Model Loaded. Draw something and label it!';
+            isModelReady = true;
+        }
+
+        function draw() {
+            if (mouseIsPressed) {
+                stroke(0);
+                strokeWeight(12);
+                line(mouseX, mouseY, pmouseX, pmouseY);
+            }
+        }
+
+        function addExample() {
+            const label = document.getElementById('labelInput').value;
+            if (label === "") {
+                alert("Please enter a label first!");
+                return;
+            }
+            // Add the current canvas image to the classifier with the user's label
+            classifier.addImage(label);
+            document.getElementById('status').innerText = `Added a "${label}" example.`;
+        }
+
+        function train() {
+            document.getElementById('status').innerText = 'Training... please wait.';
+            classifier.train((lossValue) => {
+                if (lossValue === null) {
+                    document.getElementById('status').innerText = 'Training Complete!';
+                    startGuessing();
+                }
+            });
+        }
+
+        function startGuessing() {
+            classifier.classify(gotResults);
+        }
+
+        function gotResults(err, results) {
+            if (err) {
+                console.error(err);
+                return;
+            }
+            if (results && results[0]) {
+                document.getElementById('resultText').innerText = results[0].label;
+            }
+            // Continue guessing in a loop
+            classifier.classify(gotResults);
+        }
+
+        function clearCanvas() {
+            background(255);
+        }
+    </script>
+</body>
+</html>
