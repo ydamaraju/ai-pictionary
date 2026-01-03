@@ -35,78 +35,72 @@
     </div>
 
     <script>
-        let featureExtractor;
-        let classifier;
-        let canvas;
-        let isModelReady = false;
-        let isTraining = false;
+let classifier;
+let canvas;
 
-        function setup() {
-            // Create a 400x400 canvas
-            canvas = createCanvas(400, 400);
-            canvas.parent('canvas-container');
-            background(255);
+function setup() {
+    // Create a 400x400 canvas
+    canvas = createCanvas(400, 400);
+    canvas.parent('canvas-container');
+    background(255);
 
-            // Initialize the MobileNet feature extractor
-            featureExtractor = ml5.featureExtractor('MobileNet', modelLoaded);
-            
-            // Create a classifier using those features
-            classifier = featureExtractor.classification(canvas);
-        }
+    // FIX: Use imageClassifier with { training: true } instead of featureExtractor
+    classifier = ml5.imageClassifier('MobileNet', { training: true }, modelLoaded);
+}
 
-        function modelLoaded() {
-            document.getElementById('status').innerText = 'Model Loaded. Draw something and label it!';
-            isModelReady = true;
-        }
+function modelLoaded() {
+    document.getElementById('status').innerText = 'Model Ready (v1.x)! Label and add examples.';
+}
 
-        function draw() {
-            if (mouseIsPressed) {
-                stroke(0);
-                strokeWeight(12);
-                line(mouseX, mouseY, pmouseX, pmouseY);
-            }
-        }
+function draw() {
+    if (mouseIsPressed) {
+        stroke(0);
+        strokeWeight(12);
+        line(mouseX, mouseY, pmouseX, pmouseY);
+    }
+}
 
-        function addExample() {
-            const label = document.getElementById('labelInput').value;
-            if (label === "") {
-                alert("Please enter a label first!");
-                return;
-            }
-            // Add the current canvas image to the classifier with the user's label
-            classifier.addImage(label);
-            document.getElementById('status').innerText = `Added a "${label}" example.`;
-        }
+function addExample() {
+    const label = document.getElementById('labelInput').value;
+    if (!label) return alert("Please enter a label!");
 
-        function train() {
-            document.getElementById('status').innerText = 'Training... please wait.';
-            classifier.train((lossValue) => {
-                if (lossValue === null) {
-                    document.getElementById('status').innerText = 'Training Complete!';
-                    startGuessing();
-                }
-            });
-        }
+    // FIX: Use addData instead of addImage
+    classifier.addData(canvas, label);
+    document.getElementById('status').innerText = `Added a "${label}" example.`;
+}
 
-        function startGuessing() {
-            classifier.classify(gotResults);
-        }
+function train() {
+    document.getElementById('status').innerText = 'Training... please wait.';
+    // Training remains similar but handles the new internal structure
+    classifier.train(whileTraining);
+}
 
-        function gotResults(err, results) {
-            if (err) {
-                console.error(err);
-                return;
-            }
-            if (results && results[0]) {
-                document.getElementById('resultText').innerText = results[0].label;
-            }
-            // Continue guessing in a loop
-            classifier.classify(gotResults);
-        }
+function whileTraining(loss) {
+    if (loss === null) {
+        document.getElementById('status').innerText = 'Training Complete! Guessing...';
+        startGuessing();
+    }
+}
 
-        function clearCanvas() {
-            background(255);
-        }
+function startGuessing() {
+    // Classify the current canvas
+    classifier.classify(canvas, gotResults);
+}
+
+function gotResults(results) {
+    if (results && results[0]) {
+        // results[0].label is the name you gave, confidence is 0.0 to 1.0
+        let label = results[0].label;
+        let conf = (results[0].confidence * 100).toFixed(1);
+        document.getElementById('resultText').innerText = `${label} (${conf}%)`;
+    }
+    // Loop to keep guessing
+    classifier.classify(canvas, gotResults);
+}
+
+function clearCanvas() {
+    background(255);
+}
     </script>
 </body>
 </html>
